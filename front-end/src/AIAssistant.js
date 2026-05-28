@@ -1,8 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import './AIAssistant.css';
 
-// ✅ FIX: Call your own backend, not Anthropic directly
-// Browser can't call Anthropic API directly (CORS + API key exposure)
 const API_BASE = "http://localhost:5000/api";
 
 const CATEGORIES = ["Plumbing", "Electrical", "Carpentry", "House Cleaning", "IT Services", "Appliance Repair", "Gardening", "Tutoring", "Other"];
