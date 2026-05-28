@@ -40,9 +40,17 @@ const Signup = () => {
             toast.error("Enter a valid 10-digit Indian phone number", { position: "top-center" }); return;
         }
         try {
-            const res = await axios.post("http://localhost:5000/api/signup", { ...form, role });
-            toast.success(res.data.message, { position: "top-center" });
-            setTimeout(() => navigate("/login"), 1500);
+            await axios.post("http://localhost:5000/api/signup", { ...form, role });
+            const loginRes = await axios.post("http://localhost:5000/api/login", {
+                email: form.email,
+                password: form.password
+            });
+            localStorage.setItem("token", loginRes.data.token);
+            localStorage.setItem("user", JSON.stringify(loginRes.data.user));
+            const userRole = loginRes.data.user.role;
+            if (userRole === "Customer") navigate("/customer");
+            else if (userRole === "Service Provider") navigate("/provider");
+            else navigate("/login");
         } catch (err) {
             toast.error(err.response?.data?.message || "Signup failed", { position: "top-center" });
         }

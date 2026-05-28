@@ -12,15 +12,7 @@
       }
     ],
     "css-prefix-order": "off",
-    "compat-api/css": [
-      "default",
-      {
-        "ignore": [
-          "scrollbar-color",
-          "scrollbar-width"
-        ]
-      }
-    ]
+    "compat-api/css": "off"
   },
   "browserslist": [
     "defaults",
