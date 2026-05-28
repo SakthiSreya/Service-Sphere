@@ -1,0 +1,165 @@
+.booking-modal {
+    max-width: 620px;
+}
+
+.booking-modal .highlight {
+    color: var(--primary);
+}
+
+.booking-modal .close-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--text-tertiary);
+    font-size: 22px;
+    line-height: 1;
+    transition: color 0.15s;
+}
+
+.booking-modal .close-btn:hover {
+    color: var(--text);
+}
+
+.booking-body {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+    margin: 20px 0;
+}
+
+.calendar-section h4,
+.slots-section h4 {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--text);
+    margin-bottom: 14px;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+}
+
+.week-navigator {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+}
+
+.week-navigator span {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--text);
+}
+
+.week-navigator button {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    color: var(--text-secondary);
+    border-radius: 50%;
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.15s;
+}
+
+.week-navigator button:hover {
+    background: var(--border);
+    color: var(--text);
+}
+
+.week-days {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 6px;
+}
+
+.day-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 10px 4px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    cursor: pointer;
+    transition: all 0.15s;
+    font-family: var(--font);
+    color: var(--text);
+}
+
+.day-btn .day-name {
+    font-size: 11px;
+    color: var(--text-tertiary);
+    font-weight: 500;
+}
+
+.day-btn .day-number {
+    font-size: 16px;
+    font-weight: 700;
+    margin-top: 2px;
+}
+
+.day-btn:hover:not(:disabled) {
+    border-color: var(--primary);
+    color: var(--primary);
+}
+
+.day-btn.selected {
+    background: var(--primary);
+    border-color: var(--primary);
+    color: #fff;
+}
+
+.day-btn.selected .day-name {
+    color: rgba(255, 255, 255, 0.8);
+}
+
+.day-btn.past {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+.time-slots {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+    gap: 8px;
+}
+
+.slot-btn {
+    padding: 10px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    color: var(--text);
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    font-family: var(--font);
+    transition: all 0.15s;
+    text-align: center;
+}
+
+.slot-btn:hover {
+    border-color: var(--primary);
+    color: var(--primary);
+}
+
+.slot-btn.selected {
+    background: var(--primary);
+    border-color: var(--primary);
+    color: #fff;
+}
+
+.no-slots {
+    font-size: 14px;
+    color: var(--text-secondary);
+    background: var(--surface2);
+    padding: 14px;
+    border-radius: var(--radius-md);
+    text-align: center;
+}
