@@ -91,16 +91,21 @@ const Home = () => {
                 </div>
             </section>
 
-            <section className="how-it-works-section">
+            <section className="how-it-works-section" id="how-it-works">
                 <div className="container">
                     <div className="section-header">
                         <h2 className="section-title">How It Works</h2>
-                        <p className="section-subtitle">Get the help you need in three simple steps.</p>
+                        <p className="section-subtitle">Get the help you need in four simple steps.</p>
                     </div>
                     <div className="how-it-works-grid">
                         <div className="step-card"><div className="step-number">1</div><h3 className="step-title">Search & Compare</h3><p className="step-description">Browse local pros, read verified reviews, and compare prices.</p></div>
                         <div className="step-card"><div className="step-number">2</div><h3 className="step-title">Book Instantly</h3><p className="step-description">Select your preferred time slot and book with just a few clicks.</p></div>
                         <div className="step-card"><div className="step-number">3</div><h3 className="step-title">Get It Done</h3><p className="step-description">Enjoy quality service from a trusted professional.</p></div>
+                        <div className="step-card">
+                            <div className="step-number">4</div>
+                            <h3 className="step-title">AI Assistance</h3>
+                            <p className="step-description">Describe your problem or upload an image, get quick tips, urgency rating, and matched providers for your need.</p>
+                        </div>
                     </div>
                 </div>
             </section>
@@ -157,16 +162,41 @@ const Home = () => {
                 <div className="container footer-content">
                     <div className="footer-brand">
                         <div className="logo">
-                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M12 2L2 7L12 12L22 7L12 2Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /><path d="M2 17L12 22L22 17" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /><path d="M2 12L12 17L22 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                                <path d="M12 2L2 7L12 12L22 7L12 2Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                                <path d="M2 17L12 22L22 17" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                                <path d="M2 12L12 17L22 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                            </svg>
                             ServiceSphere
                         </div>
                         <p className="footer-tagline">Connecting communities with trusted local services.</p>
                     </div>
-                    <div className="footer-links"><h4>For Customers</h4><ul><li><a href="#features">How It Works</a></li><li><Link to="/login">Find Services</Link></li></ul></div>
-                    <div className="footer-links"><h4>For Providers</h4><ul><li><Link to="/signup?role=provider">Join as Provider</Link></li><li><a href="/#">Support</a></li></ul></div>
-                    <div className="footer-links"><h4>Company</h4><ul><li><a href="/#">About Us</a></li><li><a href="/#">Contact</a></li><li><a href="/#">Privacy Policy</a></li></ul></div>
+                    <div className="footer-links">
+                        <h4>For Customers</h4>
+                        <ul>
+                            <li><a href="#how-it-works">How It Works</a></li>
+                            <li><Link to="/signup">Find Services</Link></li>
+                        </ul>
+                    </div>
+                    <div className="footer-links">
+                        <h4>For Providers</h4>
+                        <ul>
+                            <li><Link to="/signup?role=provider">Join as Provider</Link></li>
+                            <li><Link to="/support">Support</Link></li>
+                        </ul>
+                    </div>
+                    <div className="footer-links">
+                        <h4>Company</h4>
+                        <ul>
+                            <li><Link to="/about">About Us</Link></li>
+                            <li><Link to="/contact">Contact</Link></li>
+                            <li><Link to="/privacy">Privacy Policy</Link></li>
+                        </ul>
+                    </div>
                 </div>
-                <div className="footer-bottom"><p>&copy; {new Date().getFullYear()} ServiceSphere. All rights reserved.</p></div>
+                <div className="footer-bottom">
+                    <p>&copy; {new Date().getFullYear()} ServiceSphere. All rights reserved.</p>
+                </div>
             </footer>
         </div>
     );

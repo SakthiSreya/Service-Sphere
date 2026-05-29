@@ -32,7 +32,7 @@ const storage = multer.diskStorage({
 });
 const upload = multer({ storage });
 
-// FIXED: Added missing signup columns (phone, area, experience, aadhaar) to schema
+// Database Tables Initialization
 pool.query(`CREATE TABLE IF NOT EXISTS users (
   id INTEGER PRIMARY KEY AUTOINCREMENT, 
   name TEXT, 
@@ -47,9 +47,19 @@ pool.query(`CREATE TABLE IF NOT EXISTS users (
 )`);
 
 pool.query(`CREATE TABLE IF NOT EXISTS services (id INTEGER PRIMARY KEY AUTOINCREMENT, provider_id INTEGER, service_name TEXT, description TEXT, category TEXT, price REAL, availability TEXT, location TEXT, image_url TEXT, status TEXT DEFAULT 'Pending', created_at DATETIME DEFAULT CURRENT_TIMESTAMP)`);
-pool.query(`CREATE TABLE IF NOT EXISTS bookings (id INTEGER PRIMARY KEY AUTOINCREMENT, service_id INTEGER, customer_id INTEGER, provider_id INTEGER, booking_start_time DATETIME, status TEXT DEFAULT 'Pending', created_at DATETIME DEFAULT CURRENT_TIMESTAMP)`);
+
+pool.query(`CREATE TABLE IF NOT EXISTS bookings (id INTEGER PRIMARY KEY AUTOINCREMENT, service_id INTEGER, customer_id INTEGER, provider_id INTEGER, booking_start_time DATETIME, status TEXT DEFAULT 'Pending', payment_method TEXT DEFAULT 'COD', payment_status TEXT DEFAULT 'Pending', cancelled_by TEXT DEFAULT NULL, created_at DATETIME DEFAULT CURRENT_TIMESTAMP)`);
+
 pool.query(`CREATE TABLE IF NOT EXISTS schedules (id INTEGER PRIMARY KEY AUTOINCREMENT, provider_id INTEGER, day_of_week INTEGER, start_time TEXT, end_time TEXT, is_available INTEGER DEFAULT 0)`);
 pool.query(`CREATE TABLE IF NOT EXISTS reviews (id INTEGER PRIMARY KEY AUTOINCREMENT, booking_id INTEGER, service_id INTEGER, customer_id INTEGER, rating INTEGER, comment TEXT, created_at DATETIME DEFAULT CURRENT_TIMESTAMP)`);
+
+// Migration: add cancelled_by column if it doesn't exist yet (for existing DBs)
+try {
+  await pool.query(`ALTER TABLE bookings ADD COLUMN cancelled_by TEXT DEFAULT NULL`);
+  console.log("Migration: cancelled_by column added.");
+} catch (e) {
+  console.log("cancelled_by column already exists, skipping migration.");
+}
 
 const auth = (req, res, next) => {
   const token = req.headers.authorization?.split(" ")[1];
@@ -134,12 +144,12 @@ app.get("/api/services", async (req, res) => {
   try {
     const { provider_id, category, location, search } = req.query;
     let query = `SELECT s.*, u.name as provider_name, u.phone as provider_phone, u.area as provider_area,
-            ROUND(AVG(r.rating), 1) as average_rating, 
-            COUNT(r.id) as review_count
-            FROM services s
-            LEFT JOIN users u ON s.provider_id = u.id
-            LEFT JOIN reviews r ON r.service_id = s.id
-            WHERE 1=1`;
+        ROUND(AVG(r.rating), 1) as average_rating, 
+        COUNT(r.id) as review_count
+        FROM services s
+        LEFT JOIN users u ON s.provider_id = u.id
+        LEFT JOIN reviews r ON r.service_id = s.id
+        WHERE 1=1`;
     const params = [];
     if (provider_id) { query += " AND s.provider_id = ?"; params.push(provider_id); }
     else { query += " AND s.status = 'Approved'"; }
@@ -232,14 +242,25 @@ app.get("/api/bookings", auth, async (req, res) => {
 
 // BOOKINGS - Create
 app.post("/api/bookings", auth, async (req, res) => {
-  const { service_id, booking_start_time } = req.body;
+  const { service_id, booking_start_time, payment_method, payment_status } = req.body;
   try {
     const [services] = await pool.query("SELECT * FROM services WHERE id = ?", [service_id]);
     if (services.length === 0) return res.status(404).json({ message: "Service not found" });
     const service = services[0];
+
+    const finalMethod = payment_method || 'COD';
+    const finalStatus = payment_status || 'Pending';
+
     await pool.query(
-      "INSERT INTO bookings (service_id, customer_id, provider_id, booking_start_time, status) VALUES (?, ?, ?, ?, 'Pending')",
-      [service_id, req.user.id, service.provider_id, booking_start_time]
+      "INSERT INTO bookings (service_id, customer_id, provider_id, booking_start_time, status, payment_method, payment_status) VALUES (?, ?, ?, ?, 'Pending', ?, ?)",
+      [
+        service_id,
+        req.user.id,
+        service.provider_id,
+        booking_start_time,
+        finalMethod,
+        finalStatus
+      ]
     );
     res.json({ message: "Booking created" });
   } catch (err) {
@@ -252,10 +273,95 @@ app.post("/api/bookings", auth, async (req, res) => {
 app.put("/api/bookings/:id/status", auth, async (req, res) => {
   const { status } = req.body;
   try {
-    await pool.query("UPDATE bookings SET status=? WHERE id=?", [status, req.params.id]);
-    res.json({ message: "Status updated" });
+    const [bookings] = await pool.query("SELECT * FROM bookings WHERE id = ?", [req.params.id]);
+    if (bookings.length === 0) return res.status(404).json({ message: "Booking not found" });
+    const booking = bookings[0];
+
+    let updatedPaymentStatus = booking.payment_status;
+
+    const normalizedIncomingStatus = status ? status.trim().toLowerCase() : "";
+    const normalizedDbMethod = booking.payment_method ? booking.payment_method.trim().toLowerCase() : "";
+
+    if (normalizedIncomingStatus === 'completed' && normalizedDbMethod === 'cod') {
+      updatedPaymentStatus = 'Paid';
+    }
+
+    await pool.query(
+      "UPDATE bookings SET status=?, payment_status=? WHERE id=?",
+      [status, updatedPaymentStatus, req.params.id]
+    );
+
+    res.json({ message: "Status updated successfully" });
   } catch (err) {
+    console.error(err);
     res.status(500).json({ message: "Failed to update status" });
+  }
+});
+
+// BOOKINGS - Cancel
+// - Customer: can only cancel Pending bookings with more than 2 hours remaining
+//             if payment was Online and already Paid, payment_status is reset to Refunded
+// - Provider: can cancel Pending or Confirmed bookings anytime, no time restriction
+app.put("/api/bookings/:id/cancel", auth, async (req, res) => {
+  try {
+    const [bookings] = await pool.query(
+      "SELECT * FROM bookings WHERE id = ?",
+      [req.params.id]
+    );
+    if (bookings.length === 0)
+      return res.status(404).json({ message: "Booking not found" });
+
+    const booking = bookings[0];
+
+    // Use parseInt to avoid type mismatch between JWT number and DB integer
+    const userId = parseInt(req.user.id);
+    const isCustomer = userId === parseInt(booking.customer_id);
+    const isProvider = userId === parseInt(booking.provider_id);
+
+    if (!isCustomer && !isProvider)
+      return res.status(403).json({ message: "Not authorized to cancel this booking" });
+
+    if (isProvider) {
+      // Provider: no time restriction, can cancel Pending or Confirmed anytime
+      if (booking.status !== "Pending" && booking.status !== "Confirmed")
+        return res.status(400).json({ message: "Providers can only cancel Pending or Confirmed bookings" });
+
+      await pool.query(
+        "UPDATE bookings SET status = 'Cancelled', cancelled_by = 'provider' WHERE id = ?",
+        [req.params.id]
+      );
+      return res.json({ message: "Booking cancelled successfully" });
+    }
+
+    if (isCustomer) {
+      // Customer: only Pending, and must be more than 2 hours away
+      if (booking.status !== "Pending")
+        return res.status(400).json({ message: "Customers can only cancel Pending bookings" });
+
+      const bookingTime = new Date(booking.booking_start_time);
+      const now = new Date();
+      const diffInHours = (bookingTime - now) / (1000 * 60 * 60);
+
+      if (diffInHours < 2)
+        return res.status(400).json({ message: "Cannot cancel within 2 hours of the booking" });
+
+      // Bug 1 fix: if payment was Online and already Paid, mark as Refunded
+      // so the amount is removed from provider earnings
+      const isOnlinePaid =
+        booking.payment_method?.trim().toLowerCase() === "online" &&
+        booking.payment_status?.trim().toLowerCase() === "paid";
+
+      const newPaymentStatus = isOnlinePaid ? "Refunded" : booking.payment_status;
+
+      await pool.query(
+        "UPDATE bookings SET status = 'Cancelled', cancelled_by = 'customer', payment_status = ? WHERE id = ?",
+        [newPaymentStatus, req.params.id]
+      );
+      return res.json({ message: "Booking cancelled successfully" });
+    }
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Failed to cancel booking" });
   }
 });
 
@@ -395,7 +501,7 @@ app.get("/api/reviews/:serviceId", async (req, res) => {
   }
 });
 
-// TEMP - create admin (delete after first use!)
+// TEMP - create admin
 app.get("/api/create-admin", async (req, res) => {
   const hashed = await bcrypt.hash("admin123", 10);
   await pool.query("INSERT INTO users (name, email, password, role) VALUES (?, ?, ?, ?)",
@@ -403,15 +509,11 @@ app.get("/api/create-admin", async (req, res) => {
   res.json({ message: "Admin created! Now delete this route." });
 });
 
-// =========================================================================
-// ✅ CLEANED & ACTIVE AI ENDPOINT (Gemini-2.5-Flash Only)
-// =========================================================================
+// AI ENDPOINT (Gemini-2.5-Flash)
 app.post("/api/ai/analyze", auth, async (req, res) => {
   const { type, problem, base64, mediaType } = req.body;
-
   try {
     const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
-
     const basePrompt = `
       You are the backend AI for ServiceSphere, an on-demand home services platform.
       Analyze the user's issue and respond with a raw JSON object matching this schema perfectly:
@@ -429,35 +531,39 @@ app.post("/api/ai/analyze", auth, async (req, res) => {
     `;
 
     let responseText;
-
     if (type === "text") {
       if (!problem) return res.status(400).json({ message: "No problem description provided" });
       const fullPrompt = `${basePrompt}\n\nUser Problem Description: "${problem}"`;
       const response = await model.generateContent(fullPrompt);
       responseText = response.response.text();
-
     } else if (type === "image") {
       if (!base64 || !mediaType) return res.status(400).json({ message: "Missing image payload components" });
       const imagePart = {
-        inlineData: {
-          data: base64,
-          mimeType: mediaType
-        }
+        inlineData: { data: base64, mimeType: mediaType }
       };
       const fullPrompt = `${basePrompt}\n\nAnalyze this attached image showing a home issue layout.`;
       const response = await model.generateContent([fullPrompt, imagePart]);
       responseText = response.response.text();
-
     } else {
       return res.status(400).json({ message: "Invalid analysis type requested" });
     }
-
     res.json({ result: responseText });
-
   } catch (error) {
     console.error("Gemini AI API Error:", error);
     res.status(500).json({ message: "AI generation failed internally on server side." });
   }
 });
+
+// AUTO-FIX PAST CORRUPTED DATA ON REBOOT
+try {
+  await pool.query(`
+    UPDATE bookings 
+    SET payment_status = 'Paid' 
+    WHERE LOWER(status) = 'completed' AND LOWER(payment_method) = 'cod'
+  `);
+  console.log("Migration executed: Completed COD bookings set to Paid.");
+} catch (mErr) {
+  console.log("Migration skipped or table not initialized yet.");
+}
 
 app.listen(5000, () => console.log("Server at http://localhost:5000"));

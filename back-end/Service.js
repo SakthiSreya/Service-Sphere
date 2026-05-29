@@ -39,6 +39,8 @@ db.exec(`
     provider_id INTEGER,
     booking_start_time DATETIME,
     status TEXT DEFAULT 'Pending',
+    payment_method TEXT DEFAULT 'COD',
+    payment_status TEXT DEFAULT 'Pending',
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
   );
 
@@ -76,6 +78,10 @@ addColumnIfNotExists('users', 'area', 'TEXT');
 addColumnIfNotExists('users', 'experience', 'TEXT');
 addColumnIfNotExists('users', 'profile_photo', 'TEXT');
 addColumnIfNotExists('users', 'aadhaar', 'TEXT');
+
+// Payment columns for existing databases
+addColumnIfNotExists('bookings', 'payment_method', "TEXT DEFAULT 'COD'");
+addColumnIfNotExists('bookings', 'payment_status', "TEXT DEFAULT 'Pending'");
 
 const pool = {
   query: async (sql, params = []) => {

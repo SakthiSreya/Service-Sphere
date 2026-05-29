@@ -29,15 +29,13 @@ const StarIcon = ({ filled }) => (
     </svg>
 );
 
-const StarRatingDisplay = ({ rating }) => {
-    return (
-        <div className="star-rating-display">
-            {[...Array(5)].map((_, index) => (
-                <StarIcon key={index} filled={index < rating} />
-            ))}
-        </div>
-    );
-};
+const StarRatingDisplay = ({ rating }) => (
+    <div className="star-rating-display">
+        {[...Array(5)].map((_, index) => (
+            <StarIcon key={index} filled={index < rating} />
+        ))}
+    </div>
+);
 
 const StatCard = ({ icon, title, value, color }) => (
     <div className="stat-card">
@@ -48,6 +46,42 @@ const StatCard = ({ icon, title, value, color }) => (
         </div>
     </div>
 );
+
+// ─── Payment Info Badge Component ────────────────────────────────────────────
+const PaymentBadge = ({ booking }) => {
+    const isOnline = booking.payment_method === 'Online';
+    const isPaid = booking.payment_status === 'Paid';
+
+    return (
+        <p style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap', marginBottom: '5px' }}>
+            <strong style={{ color: 'var(--text)' }}>Payment:</strong>
+            {/* Method pill */}
+            <span style={{
+                display: 'inline-flex', alignItems: 'center', gap: '4px',
+                padding: '2px 10px', borderRadius: '99px', fontSize: '12px', fontWeight: 700,
+                background: isOnline ? 'rgba(79,156,249,0.12)' : 'rgba(245,158,11,0.12)',
+                color: isOnline ? 'var(--primary)' : 'var(--warning)',
+                border: `1px solid ${isOnline ? 'rgba(79,156,249,0.25)' : 'rgba(245,158,11,0.25)'}`,
+            }}>
+                {isOnline ? '💳' : '💵'} {booking.payment_method || 'COD'}
+            </span>
+            {/* Status pill */}
+            <span style={{
+                display: 'inline-flex', alignItems: 'center', gap: '4px',
+                padding: '2px 10px', borderRadius: '99px', fontSize: '12px', fontWeight: 700,
+                background: isPaid ? 'rgba(46,204,113,0.12)' : 'rgba(245,158,11,0.12)',
+                color: isPaid ? 'var(--success)' : 'var(--warning)',
+                border: `1px solid ${isPaid ? 'rgba(46,204,113,0.25)' : 'rgba(245,158,11,0.25)'}`,
+            }}>
+                {isPaid ? '✓ Paid' : '⏳ Pay on delivery'}
+            </span>
+            {/* Amount */}
+            <strong style={{ color: 'var(--text)', marginLeft: '2px' }}>
+                — ₹{booking.price || 'N/A'}
+            </strong>
+        </p>
+    );
+};
 
 const ProviderDashboard = () => {
     const [activeTab, setActiveTab] = useState('services');
@@ -65,6 +99,8 @@ const ProviderDashboard = () => {
     const [loading, setLoading] = useState(true);
     const [profileDetails, setProfileDetails] = useState({ name: '', email: '' });
     const [user, setUser] = useState(null);
+    // Track which booking is pending cancel confirmation
+    const [cancelConfirmId, setCancelConfirmId] = useState(null);
 
     const token = localStorage.getItem("token");
     const axiosWithAuth = useMemo(() => axios.create({ baseURL: API_BASE, headers: { Authorization: `Bearer ${token}` } }), [token]);
@@ -92,7 +128,12 @@ const ProviderDashboard = () => {
             fetchedSchedule.forEach(s => {
                 const dayIndex = fullSchedule.findIndex(d => d.day_of_week === s.day_of_week);
                 if (dayIndex !== -1) {
-                    fullSchedule[dayIndex] = { ...fullSchedule[dayIndex], start_time: s.start_time.substring(0, 5), end_time: s.end_time.substring(0, 5), is_available: s.is_available, };
+                    fullSchedule[dayIndex] = {
+                        ...fullSchedule[dayIndex],
+                        start_time: s.start_time.substring(0, 5),
+                        end_time: s.end_time.substring(0, 5),
+                        is_available: s.is_available,
+                    };
                 }
             });
             setSchedule(fullSchedule);
@@ -105,21 +146,12 @@ const ProviderDashboard = () => {
     };
 
     useEffect(() => {
-        let currentUser;
-        if (!token) {
-            navigate('/login');
-            return;
-        }
-
-        currentUser = JSON.parse(localStorage.getItem("user"));
+        if (!token) { navigate('/login'); return; }
+        const currentUser = JSON.parse(localStorage.getItem("user"));
         if (currentUser) {
             setUser(currentUser);
             fetchProviderData(currentUser.id, true);
-
-            const intervalId = setInterval(() => {
-                fetchProviderData(currentUser.id, false);
-            }, 30000);
-
+            const intervalId = setInterval(() => fetchProviderData(currentUser.id, false), 30000);
             return () => clearInterval(intervalId);
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -164,19 +196,12 @@ const ProviderDashboard = () => {
     };
 
     const handleScheduleChange = (dayIndex, field, value) => {
-        setSchedule(currentSchedule =>
-            currentSchedule.map((day, index) => {
-                if (index === dayIndex) {
-                    return { ...day, [field]: value };
-                }
-                return day;
-            })
-        );
+        setSchedule(cur => cur.map((day, index) => index === dayIndex ? { ...day, [field]: value } : day));
     };
 
     const handleSaveSchedule = async () => {
         try {
-            const payload = schedule.map(s => ({ ...s, start_time: `${s.start_time}:00`, end_time: `${s.end_time}:00` }))
+            const payload = schedule.map(s => ({ ...s, start_time: `${s.start_time}:00`, end_time: `${s.end_time}:00` }));
             await axiosWithAuth.post('/schedules', { schedules: payload });
             toast.success("Schedule saved successfully!");
         } catch (error) {
@@ -194,6 +219,18 @@ const ProviderDashboard = () => {
         }
     };
 
+    // Provider cancel — no time restriction, works on Pending or Confirmed
+    const handleCancelBooking = async (bookingId) => {
+        try {
+            await axiosWithAuth.put(`/bookings/${bookingId}/cancel`);
+            toast.success("Booking cancelled.");
+            setCancelConfirmId(null);
+            await fetchProviderData(user.id, false);
+        } catch (err) {
+            toast.error(err.response?.data?.message || "Failed to cancel booking.");
+        }
+    };
+
     const handleUpdateProfile = async (e) => {
         e.preventDefault();
         try {
@@ -206,7 +243,7 @@ const ProviderDashboard = () => {
         } catch (err) {
             toast.error(err.response?.data?.message || "Failed to update profile.");
         }
-    }
+    };
 
     const handleSignOut = () => {
         localStorage.removeItem("token");
@@ -217,13 +254,31 @@ const ProviderDashboard = () => {
     const stats = useMemo(() => ({
         totalServices: services.length,
         pendingBookings: bookings.filter(b => b.status === "Pending").length,
-        totalEarnings: bookings.filter(b => b.status === "Completed").reduce((acc, s) => acc + (parseFloat(s.price) || 0), 0).toFixed(2),
+        // Bug 1 fix: exclude Refunded online payments from earnings
+        // When a customer cancels an already-paid online booking, payment_status
+        // becomes 'Refunded' so it no longer counts toward provider earnings
+        totalEarnings: bookings
+            .filter(b =>
+                (b.payment_method === 'Online' && b.payment_status === 'Paid' && b.status !== 'Cancelled') ||
+                (b.payment_method !== 'Online' && b.status === 'Completed')
+            )
+            .reduce((acc, b) => acc + (parseFloat(b.price) || 0), 0)
+            .toFixed(2),
     }), [services, bookings]);
 
     const FALLBACK_CATEGORIES = ["Plumbing", "Electrical", "Carpentry", "House Cleaning", "IT Services", "Appliance Repair", "Gardening", "Tutoring", "Other"];
     const FALLBACK_AVAILABILITIES = ["Available", "Unavailable", "Busy"];
-
     const pendingCount = bookings.filter(b => b.status === 'Pending').length;
+
+    // Determine cancellation label for provider view:
+    // - If provider cancelled: "Cancelled by You"
+    // - If customer cancelled: "Cancelled by Customer"
+    const getCancelledLabel = (booking) => {
+        if (booking.cancelled_by === 'provider') {
+            return 'Cancelled by You';
+        }
+        return 'Cancelled by Customer';
+    };
 
     return (
         <div className="main-content-wrapper">
@@ -253,10 +308,9 @@ const ProviderDashboard = () => {
 
             <main className="content-area">
                 <div className="stats-grid">
-                    {/* ✅ FIX: use correct CSS variable names */}
                     <StatCard icon={<ListIcon />} title="Total Services" value={stats.totalServices} color="var(--primary)" />
                     <StatCard icon={<CalendarIcon />} title="Pending Bookings" value={stats.pendingBookings} color="var(--warning)" />
-                    <StatCard icon={<CheckCircleIcon />} title="Completed Earnings" value={`₹${stats.totalEarnings}`} color="var(--success)" />
+                    <StatCard icon={<CheckCircleIcon />} title="Total Earnings" value={`₹${stats.totalEarnings}`} color="var(--success)" />
                 </div>
 
                 <div className="tabs">
@@ -265,10 +319,7 @@ const ProviderDashboard = () => {
                     <button className={`tab-btn ${activeTab === 'schedule' ? 'active' : ''}`} onClick={() => setActiveTab('schedule')}>My Schedule</button>
                     <button className={`tab-btn ${activeTab === 'bookings' ? 'active' : ''}`} onClick={() => setActiveTab('bookings')}>
                         Customer Bookings
-                        {/* ✅ FIX: use CSS class instead of inline style so it works in both themes */}
-                        {pendingCount > 0 && (
-                            <span className="tab-badge">{pendingCount}</span>
-                        )}
+                        {pendingCount > 0 && <span className="tab-badge">{pendingCount}</span>}
                     </button>
                 </div>
 
@@ -290,7 +341,12 @@ const ProviderDashboard = () => {
                                     <tbody>
                                         {services.map(s => (
                                             <tr key={s.id}>
-                                                <td><div className="service-name-cell"><img src={s.image_url || `https://placehold.co/100x100/10101a/a99eff?text=${s.service_name.charAt(0)}`} alt={s.service_name} /><span>{s.service_name}</span></div></td>
+                                                <td>
+                                                    <div className="service-name-cell">
+                                                        <img src={s.image_url || `https://placehold.co/100x100/10101a/a99eff?text=${s.service_name.charAt(0)}`} alt={s.service_name} />
+                                                        <span>{s.service_name}</span>
+                                                    </div>
+                                                </td>
                                                 <td>{s.category}</td>
                                                 <td>₹{s.price || 'N/A'}</td>
                                                 <td className="status-cell"><span className={`status-badge ${s.status?.toLowerCase()}`}>{s.status}</span></td>
@@ -351,7 +407,6 @@ const ProviderDashboard = () => {
                 {activeTab === 'bookings' && (
                     <section className="content-panel">
                         <h3 className="panel-header">Customer Bookings</h3>
-                        {/* ✅ FIX: use CSS class .pending-alert instead of broken inline styles */}
                         {pendingCount > 0 && (
                             <div className="pending-alert">
                                 <CalendarIcon /> You have {pendingCount} pending booking(s) awaiting your action!
@@ -366,12 +421,32 @@ const ProviderDashboard = () => {
                                                 <h4>{b.service_name}</h4>
                                                 <p><strong>Customer:</strong> {b.customer_name}</p>
                                                 <p><strong>Date:</strong> {format(new Date(b.booking_start_time), 'EEEE, MMMM d, yyyy \'at\' h:mm a')}</p>
-                                                <p><strong>Phone:</strong> {b.customer_phone
-                                                    ? <a href={`tel:${b.customer_phone}`} style={{ color: 'var(--primary)' }}>{b.customer_phone}</a>
-                                                    : <span style={{ opacity: 0.5 }}>Not provided</span>}
+                                                <p>
+                                                    <strong>Phone:</strong>{' '}
+                                                    {b.customer_phone
+                                                        ? <a href={`tel:${b.customer_phone}`} style={{ color: 'var(--primary)' }}>{b.customer_phone}</a>
+                                                        : <span style={{ opacity: 0.5 }}>Not provided</span>}
                                                 </p>
                                                 <p><strong>Area:</strong> {b.customer_area || <span style={{ opacity: 0.5 }}>Not provided</span>}</p>
-                                                {b.review_id && (
+
+                                                {/* Payment info — hidden when cancelled */}
+                                                {b.status !== 'Cancelled' && <PaymentBadge booking={b} />}
+
+                                                {/* Cancellation label — shows who cancelled */}
+                                                {b.status === 'Cancelled' && (
+                                                    <p>
+                                                        <span style={{
+                                                            display: 'inline-flex', alignItems: 'center', gap: '6px',
+                                                            padding: '3px 10px', borderRadius: '99px', fontSize: '12px', fontWeight: 600,
+                                                            background: 'rgba(239,68,68,0.1)', color: '#ef4444',
+                                                            border: '1px solid rgba(239,68,68,0.2)'
+                                                        }}>
+                                                            🚫 {getCancelledLabel(b)}
+                                                        </span>
+                                                    </p>
+                                                )}
+
+                                                {b.review_id && b.status !== 'Cancelled' && (
                                                     <div className="review-display-provider">
                                                         <StarRatingDisplay rating={b.rating} />
                                                         {b.comment && <p className="review-comment-provider">"{b.comment}"</p>}
@@ -383,16 +458,38 @@ const ProviderDashboard = () => {
                                             </div>
                                         </div>
 
+                                        {/* Action buttons for Pending and Confirmed bookings */}
                                         {(b.status === 'Pending' || b.status === 'Confirmed') && (
                                             <div className="provider-card-actions">
                                                 {b.status === 'Pending' && (
                                                     <>
                                                         <button className="btn btn-small success" onClick={() => handleBookingStatusChange(b.id, 'Confirmed')}>Confirm</button>
-                                                        <button className="btn btn-small danger" onClick={() => handleBookingStatusChange(b.id, 'Cancelled')}>Cancel</button>
+                                                        {/* Bug 3 fix: wrap confirm row in a flex div so Sure?/Yes/No are perfectly aligned */}
+                                                        {cancelConfirmId === b.id ? (
+                                                            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
+                                                                <span style={{ fontSize: '13px', color: 'var(--text-secondary)', fontWeight: 600, lineHeight: 1 }}>Sure?</span>
+                                                                <button className="btn btn-small danger" onClick={() => handleCancelBooking(b.id)}>Yes, Cancel</button>
+                                                                <button className="btn btn-small" style={{ background: 'var(--surface2)', color: 'var(--text-secondary)', border: '1px solid var(--border)' }} onClick={() => setCancelConfirmId(null)}>No</button>
+                                                            </div>
+                                                        ) : (
+                                                            <button className="btn btn-small danger" onClick={() => setCancelConfirmId(b.id)}>Cancel</button>
+                                                        )}
                                                     </>
                                                 )}
                                                 {b.status === 'Confirmed' && (
-                                                    <button className="btn btn-small" onClick={() => handleBookingStatusChange(b.id, 'Completed')}>Mark as Completed</button>
+                                                    <>
+                                                        <button className="btn btn-small" onClick={() => handleBookingStatusChange(b.id, 'Completed')}>Mark as Completed</button>
+                                                        {/* Bug 3 fix: same alignment wrapper */}
+                                                        {cancelConfirmId === b.id ? (
+                                                            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
+                                                                <span style={{ fontSize: '13px', color: 'var(--text-secondary)', fontWeight: 600, lineHeight: 1 }}>Sure?</span>
+                                                                <button className="btn btn-small danger" onClick={() => handleCancelBooking(b.id)}>Yes, Cancel</button>
+                                                                <button className="btn btn-small" style={{ background: 'var(--surface2)', color: 'var(--text-secondary)', border: '1px solid var(--border)' }} onClick={() => setCancelConfirmId(null)}>No</button>
+                                                            </div>
+                                                        ) : (
+                                                            <button className="btn btn-small danger" onClick={() => setCancelConfirmId(b.id)}>Cancel</button>
+                                                        )}
+                                                    </>
                                                 )}
                                             </div>
                                         )}
@@ -404,6 +501,7 @@ const ProviderDashboard = () => {
                 )}
             </main>
 
+            {/* Edit Service Modal */}
             {isEditServiceModalOpen && editingService && (
                 <div className="modal-overlay" onClick={() => setIsEditServiceModalOpen(false)}>
                     <div className="modal-content" onClick={e => e.stopPropagation()}>
@@ -417,10 +515,7 @@ const ProviderDashboard = () => {
                                 <div className="form-group"><label>Location</label><input type="text" className="form-input" placeholder="e.g. Bhubaneswar" value={editingService.location || ''} onChange={e => setEditingService({ ...editingService, location: e.target.value })} /></div>
                                 <div className="form-group full-width">
                                     <label>Service Image</label>
-                                    <ImageUploader
-                                        initialImageUrl={editingService.image_url}
-                                        onUploadComplete={(url) => setEditingService({ ...editingService, image_url: url })}
-                                    />
+                                    <ImageUploader initialImageUrl={editingService.image_url} onUploadComplete={(url) => setEditingService({ ...editingService, image_url: url })} />
                                 </div>
                             </div>
                             <div className="modal-actions">
@@ -432,6 +527,7 @@ const ProviderDashboard = () => {
                 </div>
             )}
 
+            {/* Delete Confirm Modal */}
             {isDeleteModalOpen && serviceToDelete && (
                 <div className="modal-overlay" onClick={() => setIsDeleteModalOpen(false)}>
                     <div className="modal-content confirm-delete-modal" onClick={e => e.stopPropagation()}>
@@ -445,6 +541,7 @@ const ProviderDashboard = () => {
                 </div>
             )}
 
+            {/* Edit Profile Modal */}
             {isProfileEditModalOpen && (
                 <div className="modal-overlay" onClick={() => setIsProfileEditModalOpen(false)}>
                     <div className="modal-content" onClick={e => e.stopPropagation()}>
