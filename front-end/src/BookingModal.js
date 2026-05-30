@@ -177,7 +177,6 @@ const OnlinePaymentScreen = ({ service, onBack, onPaymentSuccess, isSubmitting }
             toast.warn('Please select a bank');
             return;
         }
-
         setIsProcessing(true);
         setTimeout(() => {
             setIsProcessing(false);
@@ -223,12 +222,7 @@ const OnlinePaymentScreen = ({ service, onBack, onPaymentSuccess, isSubmitting }
                             <div className="upi-divider"><span>or enter UPI ID</span></div>
                             <div className="gateway-field">
                                 <label>UPI ID</label>
-                                <input
-                                    className="gateway-input"
-                                    placeholder="yourname@upi"
-                                    value={upiId}
-                                    onChange={e => setUpiId(e.target.value)}
-                                />
+                                <input className="gateway-input" placeholder="yourname@upi" value={upiId} onChange={e => setUpiId(e.target.value)} />
                             </div>
                         </div>
                     )}
@@ -312,7 +306,6 @@ const SuccessScreen = ({ paymentMethod, onClose }) => (
 );
 
 // ─── Main BookingModal ────────────────────────────────────────────────────────
-// NOTE: axiosWithAuth prop removed — modal now owns its own authenticated instance
 const BookingModal = ({ service, onClose }) => {
     const [screen, setScreen] = useState('slots');
     const [selectedDate, setSelectedDate] = useState(new Date());
@@ -323,8 +316,6 @@ const BookingModal = ({ service, onClose }) => {
     const [paymentMethod, setPaymentMethod] = useState('COD');
     const [isSubmitting, setIsSubmitting] = useState(false);
 
-    // ✅ FIX: Build the authenticated axios instance here, not from props.
-    // This guarantees the correct baseURL and token are always used.
     const token = localStorage.getItem('token');
     const axiosWithAuth = useMemo(() => axios.create({
         baseURL: API_BASE,
@@ -337,7 +328,8 @@ const BookingModal = ({ service, onClose }) => {
         setSelectedSlot(null);
         try {
             const dateStr = format(date, 'yyyy-MM-dd');
-            const res = await axios.get(`${API_BASE}/availability/${service.provider_id}/${dateStr}`);
+            // ✅ Uses service.id (not provider_id) — matches new per-service availability endpoint
+            const res = await axios.get(`${API_BASE}/availability/${service.id}/${dateStr}`);
             setAvailableSlots(res.data.availableSlots);
         } catch {
             toast.error("Failed to fetch available slots.");
@@ -356,7 +348,6 @@ const BookingModal = ({ service, onClose }) => {
         return t.toISOString();
     };
 
-    // Called when COD is confirmed OR after online payment succeeds
     const createBooking = async (method) => {
         setIsSubmitting(true);
         try {
@@ -364,7 +355,7 @@ const BookingModal = ({ service, onClose }) => {
                 service_id: service.id,
                 provider_id: service.provider_id,
                 booking_start_time: buildBookingStartTime(),
-                payment_method: method,                              // ✅ 'COD' or 'Online'
+                payment_method: method,
                 payment_status: method === 'Online' ? 'Paid' : 'Pending',
             });
             setScreen('success');
@@ -383,8 +374,6 @@ const BookingModal = ({ service, onClose }) => {
         }
     };
 
-    // ✅ FIX: pass the actual method string, not the state variable
-    // (state might not have flushed yet in older React versions)
     const handleOnlinePaymentSuccess = () => {
         createBooking('Online');
     };

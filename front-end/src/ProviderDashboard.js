@@ -8,7 +8,6 @@ import { format } from 'date-fns';
 import ImageUploader from './ImageUploader'
 import ThemeToggle from './ThemeToggle';
 
-
 const API_BASE = "http://localhost:5000/api";
 
 // --- Icon Components ---
@@ -47,15 +46,12 @@ const StatCard = ({ icon, title, value, color }) => (
     </div>
 );
 
-// ─── Payment Info Badge Component ────────────────────────────────────────────
 const PaymentBadge = ({ booking }) => {
     const isOnline = booking.payment_method === 'Online';
     const isPaid = booking.payment_status === 'Paid';
-
     return (
         <p style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap', marginBottom: '5px' }}>
             <strong style={{ color: 'var(--text)' }}>Payment:</strong>
-            {/* Method pill */}
             <span style={{
                 display: 'inline-flex', alignItems: 'center', gap: '4px',
                 padding: '2px 10px', borderRadius: '99px', fontSize: '12px', fontWeight: 700,
@@ -65,7 +61,6 @@ const PaymentBadge = ({ booking }) => {
             }}>
                 {isOnline ? '💳' : '💵'} {booking.payment_method || 'COD'}
             </span>
-            {/* Status pill */}
             <span style={{
                 display: 'inline-flex', alignItems: 'center', gap: '4px',
                 padding: '2px 10px', borderRadius: '99px', fontSize: '12px', fontWeight: 700,
@@ -75,7 +70,6 @@ const PaymentBadge = ({ booking }) => {
             }}>
                 {isPaid ? '✓ Paid' : '⏳ Pay on delivery'}
             </span>
-            {/* Amount */}
             <strong style={{ color: 'var(--text)', marginLeft: '2px' }}>
                 — ₹{booking.price || 'N/A'}
             </strong>
@@ -83,11 +77,23 @@ const PaymentBadge = ({ booking }) => {
     );
 };
 
+const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+
+const initializeSchedule = () =>
+    DAYS.map((day, index) => ({
+        day_of_week: index, day_name: day, start_time: "09:00", end_time: "17:00", is_available: false
+    }));
+
 const ProviderDashboard = () => {
     const [activeTab, setActiveTab] = useState('services');
     const [services, setServices] = useState([]);
     const [bookings, setBookings] = useState([]);
-    const [schedule, setSchedule] = useState([]);
+
+    // ✅ Per-service schedule state
+    const [selectedScheduleServiceId, setSelectedScheduleServiceId] = useState(null);
+    const [schedule, setSchedule] = useState(initializeSchedule());
+    const [scheduleLoading, setScheduleLoading] = useState(false);
+
     const navigate = useNavigate();
     const [form, setForm] = useState({ service_name: "", description: "", category: "", price: "", location: "", image_url: "", availability: "Available" });
     const [isEditServiceModalOpen, setIsEditServiceModalOpen] = useState(false);
@@ -99,49 +105,52 @@ const ProviderDashboard = () => {
     const [loading, setLoading] = useState(true);
     const [profileDetails, setProfileDetails] = useState({ name: '', email: '' });
     const [user, setUser] = useState(null);
-    // Track which booking is pending cancel confirmation
     const [cancelConfirmId, setCancelConfirmId] = useState(null);
 
     const token = localStorage.getItem("token");
     const axiosWithAuth = useMemo(() => axios.create({ baseURL: API_BASE, headers: { Authorization: `Bearer ${token}` } }), [token]);
 
-    const initializeSchedule = () => {
-        const days = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
-        return days.map((day, index) => ({
-            day_of_week: index, day_name: day, start_time: "09:00", end_time: "17:00", is_available: false
-        }));
-    };
-
     const fetchProviderData = async (providerId, initialLoad = false) => {
         if (initialLoad) setLoading(true);
         try {
-            const [servicesRes, bookingsRes, scheduleRes] = await Promise.all([
+            const [servicesRes, bookingsRes] = await Promise.all([
                 axiosWithAuth.get("/services", { params: { provider_id: providerId } }),
                 axiosWithAuth.get("/bookings"),
-                axiosWithAuth.get("/schedules")
             ]);
             setServices(servicesRes.data || []);
             setBookings(bookingsRes.data || []);
-
-            const fetchedSchedule = scheduleRes.data;
-            const fullSchedule = initializeSchedule();
-            fetchedSchedule.forEach(s => {
-                const dayIndex = fullSchedule.findIndex(d => d.day_of_week === s.day_of_week);
-                if (dayIndex !== -1) {
-                    fullSchedule[dayIndex] = {
-                        ...fullSchedule[dayIndex],
-                        start_time: s.start_time.substring(0, 5),
-                        end_time: s.end_time.substring(0, 5),
-                        is_available: s.is_available,
-                    };
-                }
-            });
-            setSchedule(fullSchedule);
         } catch (err) {
             if (initialLoad) toast.error("Failed to fetch provider data.");
             console.error("Data fetch error:", err);
         } finally {
             if (initialLoad) setLoading(false);
+        }
+    };
+
+    // ✅ Load schedule for a specific service
+    const fetchScheduleForService = async (serviceId) => {
+        setScheduleLoading(true);
+        setSchedule(initializeSchedule()); // reset while loading
+        try {
+            const res = await axiosWithAuth.get("/schedules", { params: { service_id: serviceId } });
+            const fetched = res.data;
+            const full = initializeSchedule();
+            fetched.forEach(s => {
+                const idx = full.findIndex(d => d.day_of_week === s.day_of_week);
+                if (idx !== -1) {
+                    full[idx] = {
+                        ...full[idx],
+                        start_time: s.start_time.substring(0, 5),
+                        end_time: s.end_time.substring(0, 5),
+                        is_available: !!s.is_available,
+                    };
+                }
+            });
+            setSchedule(full);
+        } catch (err) {
+            toast.error("Failed to load schedule.");
+        } finally {
+            setScheduleLoading(false);
         }
     };
 
@@ -157,12 +166,27 @@ const ProviderDashboard = () => {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [token, navigate]);
 
+    // ✅ When switching to the schedule tab, auto-select first approved service
+    useEffect(() => {
+        if (activeTab === 'schedule' && services.length > 0 && !selectedScheduleServiceId) {
+            const firstApproved = services.find(s => s.status === 'Approved') || services[0];
+            setSelectedScheduleServiceId(firstApproved.id);
+            fetchScheduleForService(firstApproved.id);
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [activeTab, services]);
+
+    const handleServiceSelectForSchedule = (serviceId) => {
+        setSelectedScheduleServiceId(serviceId);
+        fetchScheduleForService(serviceId);
+    };
+
     const handleSubmit = async (e) => {
         e.preventDefault();
         try {
             await axiosWithAuth.post("/services", { ...form });
             toast.success("Service submitted for admin approval!");
-            setForm({ service_name: "", description: "", category: "", price: "", location: "", image_url: "" });
+            setForm({ service_name: "", description: "", category: "", price: "", location: "", image_url: "", availability: "Available" });
             await fetchProviderData(user.id, true);
             setActiveTab('services');
         } catch (err) {
@@ -200,10 +224,18 @@ const ProviderDashboard = () => {
     };
 
     const handleSaveSchedule = async () => {
+        if (!selectedScheduleServiceId) {
+            toast.warn("Please select a service first.");
+            return;
+        }
         try {
-            const payload = schedule.map(s => ({ ...s, start_time: `${s.start_time}:00`, end_time: `${s.end_time}:00` }));
-            await axiosWithAuth.post('/schedules', { schedules: payload });
-            toast.success("Schedule saved successfully!");
+            const payload = schedule.map(s => ({
+                ...s,
+                start_time: `${s.start_time}:00`,
+                end_time: `${s.end_time}:00`,
+            }));
+            await axiosWithAuth.post('/schedules', { schedules: payload, service_id: selectedScheduleServiceId });
+            toast.success("Schedule saved!");
         } catch (error) {
             toast.error("Failed to save schedule.");
         }
@@ -219,7 +251,6 @@ const ProviderDashboard = () => {
         }
     };
 
-    // Provider cancel — no time restriction, works on Pending or Confirmed
     const handleCancelBooking = async (bookingId) => {
         try {
             await axiosWithAuth.put(`/bookings/${bookingId}/cancel`);
@@ -254,9 +285,6 @@ const ProviderDashboard = () => {
     const stats = useMemo(() => ({
         totalServices: services.length,
         pendingBookings: bookings.filter(b => b.status === "Pending").length,
-        // Bug 1 fix: exclude Refunded online payments from earnings
-        // When a customer cancels an already-paid online booking, payment_status
-        // becomes 'Refunded' so it no longer counts toward provider earnings
         totalEarnings: bookings
             .filter(b =>
                 (b.payment_method === 'Online' && b.payment_status === 'Paid' && b.status !== 'Cancelled') ||
@@ -270,15 +298,13 @@ const ProviderDashboard = () => {
     const FALLBACK_AVAILABILITIES = ["Available", "Unavailable", "Busy"];
     const pendingCount = bookings.filter(b => b.status === 'Pending').length;
 
-    // Determine cancellation label for provider view:
-    // - If provider cancelled: "Cancelled by You"
-    // - If customer cancelled: "Cancelled by Customer"
     const getCancelledLabel = (booking) => {
-        if (booking.cancelled_by === 'provider') {
-            return 'Cancelled by You';
-        }
+        if (booking.cancelled_by === 'provider') return 'Cancelled by You';
         return 'Cancelled by Customer';
     };
+
+    // The service currently selected for schedule editing
+    const selectedScheduleService = services.find(s => s.id === selectedScheduleServiceId);
 
     return (
         <div className="main-content-wrapper">
@@ -323,6 +349,7 @@ const ProviderDashboard = () => {
                     </button>
                 </div>
 
+                {/* ── My Services Tab ─────────────────────────────────────── */}
                 {activeTab === 'services' && (
                     <section className="content-panel">
                         <h3 className="panel-header">Your Service Listings</h3>
@@ -363,6 +390,7 @@ const ProviderDashboard = () => {
                     </section>
                 )}
 
+                {/* ── Add Service Tab ─────────────────────────────────────── */}
                 {activeTab === 'addService' && (
                     <section className="content-panel">
                         <h3 className="panel-header"><PlusIcon /> Add a New Service</h3>
@@ -383,27 +411,76 @@ const ProviderDashboard = () => {
                     </section>
                 )}
 
+                {/* ── Schedule Tab ─────────────────────────────────────────── */}
                 {activeTab === 'schedule' && (
                     <section className="content-panel">
-                        <h3 className="panel-header"><CalendarIcon /> My Weekly Schedule</h3>
-                        <p className="panel-subtitle">Set your available hours for each day. Customers will only be able to book slots within these times.</p>
-                        <div className="schedule-editor">
-                            {schedule.map((day, index) => (
-                                <div key={day.day_of_week} className="schedule-day-row">
-                                    <label className="schedule-day-label">{day.day_name}</label>
-                                    <input type="checkbox" className="schedule-checkbox" checked={day.is_available} onChange={(e) => handleScheduleChange(index, 'is_available', e.target.checked)} />
-                                    <div className="schedule-time-inputs" style={{ opacity: day.is_available ? 1 : 0.5 }}>
-                                        <input type="time" disabled={!day.is_available} value={day.start_time} onChange={e => handleScheduleChange(index, 'start_time', e.target.value)} />
-                                        <span>to</span>
-                                        <input type="time" disabled={!day.is_available} value={day.end_time} onChange={e => handleScheduleChange(index, 'end_time', e.target.value)} />
-                                    </div>
+                        <h3 className="panel-header"><CalendarIcon /> Service Schedule</h3>
+                        <p className="panel-subtitle">Each service can have its own weekly availability. Select a service below to configure its schedule.</p>
+
+                        {/* ✅ Service selector */}
+                        {services.length === 0 ? (
+                            <p style={{ color: 'var(--text-secondary)' }}>You have no services yet. Add a service first.</p>
+                        ) : (
+                            <>
+                                <div className="form-group" style={{ marginBottom: '20px' }}>
+                                    <label>Select Service</label>
+                                    <select
+                                        className="form-select"
+                                        value={selectedScheduleServiceId || ''}
+                                        onChange={e => handleServiceSelectForSchedule(Number(e.target.value))}
+                                    >
+                                        <option value="" disabled>Choose a service...</option>
+                                        {services.map(s => (
+                                            <option key={s.id} value={s.id}>
+                                                {s.service_name} {s.status !== 'Approved' ? `(${s.status})` : ''}
+                                            </option>
+                                        ))}
+                                    </select>
                                 </div>
-                            ))}
-                        </div>
-                        <div className="panel-footer"><button className="btn btn-primary" onClick={handleSaveSchedule}>Save Schedule</button></div>
+
+                                {selectedScheduleService && (
+                                    <>
+                                        {selectedScheduleService.status !== 'Approved' && (
+                                            <div className="pending-alert" style={{ marginBottom: '16px' }}>
+                                                ⚠️ This service is still <strong>{selectedScheduleService.status}</strong>. You can set its schedule, but customers won't see it until it's approved.
+                                            </div>
+                                        )}
+
+                                        {scheduleLoading ? (
+                                            <div className="loader" style={{ margin: '20px auto' }}></div>
+                                        ) : (
+                                            <div className="schedule-editor">
+                                                {schedule.map((day, index) => (
+                                                    <div key={day.day_of_week} className="schedule-day-row">
+                                                        <label className="schedule-day-label">{day.day_name}</label>
+                                                        <input
+                                                            type="checkbox"
+                                                            className="schedule-checkbox"
+                                                            checked={day.is_available}
+                                                            onChange={(e) => handleScheduleChange(index, 'is_available', e.target.checked)}
+                                                        />
+                                                        <div className="schedule-time-inputs" style={{ opacity: day.is_available ? 1 : 0.5 }}>
+                                                            <input type="time" disabled={!day.is_available} value={day.start_time} onChange={e => handleScheduleChange(index, 'start_time', e.target.value)} />
+                                                            <span>to</span>
+                                                            <input type="time" disabled={!day.is_available} value={day.end_time} onChange={e => handleScheduleChange(index, 'end_time', e.target.value)} />
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
+                                        <div className="panel-footer">
+                                            <button className="btn btn-primary" onClick={handleSaveSchedule} disabled={scheduleLoading}>
+                                                Save Schedule for "{selectedScheduleService.service_name}"
+                                            </button>
+                                        </div>
+                                    </>
+                                )}
+                            </>
+                        )}
                     </section>
                 )}
 
+                {/* ── Bookings Tab ─────────────────────────────────────────── */}
                 {activeTab === 'bookings' && (
                     <section className="content-panel">
                         <h3 className="panel-header">Customer Bookings</h3>
@@ -429,10 +506,8 @@ const ProviderDashboard = () => {
                                                 </p>
                                                 <p><strong>Area:</strong> {b.customer_area || <span style={{ opacity: 0.5 }}>Not provided</span>}</p>
 
-                                                {/* Payment info — hidden when cancelled */}
                                                 {b.status !== 'Cancelled' && <PaymentBadge booking={b} />}
 
-                                                {/* Cancellation label — shows who cancelled */}
                                                 {b.status === 'Cancelled' && (
                                                     <p>
                                                         <span style={{
@@ -458,13 +533,11 @@ const ProviderDashboard = () => {
                                             </div>
                                         </div>
 
-                                        {/* Action buttons for Pending and Confirmed bookings */}
                                         {(b.status === 'Pending' || b.status === 'Confirmed') && (
                                             <div className="provider-card-actions">
                                                 {b.status === 'Pending' && (
                                                     <>
                                                         <button className="btn btn-small success" onClick={() => handleBookingStatusChange(b.id, 'Confirmed')}>Confirm</button>
-                                                        {/* Bug 3 fix: wrap confirm row in a flex div so Sure?/Yes/No are perfectly aligned */}
                                                         {cancelConfirmId === b.id ? (
                                                             <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
                                                                 <span style={{ fontSize: '13px', color: 'var(--text-secondary)', fontWeight: 600, lineHeight: 1 }}>Sure?</span>
@@ -479,7 +552,6 @@ const ProviderDashboard = () => {
                                                 {b.status === 'Confirmed' && (
                                                     <>
                                                         <button className="btn btn-small" onClick={() => handleBookingStatusChange(b.id, 'Completed')}>Mark as Completed</button>
-                                                        {/* Bug 3 fix: same alignment wrapper */}
                                                         {cancelConfirmId === b.id ? (
                                                             <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
                                                                 <span style={{ fontSize: '13px', color: 'var(--text-secondary)', fontWeight: 600, lineHeight: 1 }}>Sure?</span>
@@ -532,7 +604,7 @@ const ProviderDashboard = () => {
                 <div className="modal-overlay" onClick={() => setIsDeleteModalOpen(false)}>
                     <div className="modal-content confirm-delete-modal" onClick={e => e.stopPropagation()}>
                         <div className="modal-header"><h3>Confirm Deletion</h3></div>
-                        <p>Are you sure you want to delete the service "{serviceToDelete?.service_name}"? This action cannot be undone.</p>
+                        <p>Are you sure you want to delete "{serviceToDelete?.service_name}"? This action cannot be undone.</p>
                         <div className="modal-actions">
                             <button type="button" className="btn btn-secondary" onClick={() => setIsDeleteModalOpen(false)}>Cancel</button>
                             <button type="button" className="btn btn-danger" onClick={handleDelete}>Delete</button>

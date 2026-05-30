@@ -92,7 +92,6 @@ const CustomerDashboard = () => {
         setServices(filtered);
     }, [allServices, filters]);
 
-    // AI Assistant: filter by category
     const handleAIFilterByCategory = useCallback((category) => {
         setFilters(prev => ({ ...prev, category }));
         window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -185,7 +184,6 @@ const CustomerDashboard = () => {
                     </div>
                 </div>
 
-                {/* Active AI Filter Banner */}
                 {filters.category && (
                     <div className="ai-filter-banner">
                         <span>Showing: <strong>{filters.category}</strong></span>
@@ -224,7 +222,7 @@ const CustomerDashboard = () => {
                                     </div>
                                     {s.availability === "Available"
                                         ? <button className="details-btn" onClick={() => { setSelectedService(s); setIsBookingModalOpen(true); }}>Book Now</button>
-                                        : <button className="details-btn disabled" disabled>Unavailable</button>}
+                                        : <button className="details-btn disabled" disabled>{s.availability || 'Unavailable'}</button>}
                                 </div>
                             </div>
                         ))}
@@ -236,7 +234,6 @@ const CustomerDashboard = () => {
                 )}
             </main>
 
-            {/* AI Assistant - floating */}
             <AIAssistant services={allServices} onFilterByCategory={handleAIFilterByCategory} user={user} />
 
             {isBookingModalOpen && <BookingModal service={selectedService} onClose={() => setIsBookingModalOpen(false)} axiosWithAuth={axiosWithAuth} />}

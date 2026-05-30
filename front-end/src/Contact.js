@@ -4,12 +4,59 @@ import { Link } from 'react-router-dom';
 import ThemeToggle from './ThemeToggle';
 import './Home.css';
 
-const Contact = () => {
-    const [submitted, setSubmitted] = useState(false);
+const API_BASE = "http://localhost:5000/api";
 
-    const handleSubmit = (e) => {
+const Contact = () => {
+    const loggedInUser = (() => {
+        try { return JSON.parse(localStorage.getItem("user")); } catch { return null; }
+    })();
+
+    const autoName = loggedInUser?.name || '';
+    const autoEmail = loggedInUser?.email || '';
+
+    const [form, setForm] = useState({
+        name: autoName,
+        email: autoEmail,
+        message: '',
+        role: 'Customer',
+    });
+    const [submitted, setSubmitted] = useState(false);
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState('');
+
+    const handleChange = (e) => {
+        setForm(prev => ({ ...prev, [e.target.name]: e.target.value }));
+        setError('');
+    };
+
+    const handleSubmit = async (e) => {
         e.preventDefault();
-        setSubmitted(true);
+        const { name, email, message, role } = form;
+        if (!name.trim() || !email.trim() || !message.trim()) {
+            setError('Please fill in all fields.');
+            return;
+        }
+        setLoading(true);
+        try {
+            const res = await fetch(`${API_BASE}/contact`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name, email, message, role }),
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.message || 'Something went wrong');
+            setSubmitted(true);
+        } catch (err) {
+            setError(err.message || 'Failed to send message. Please try again.');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const inputStyle = {
+        width: '100%', padding: '0.65rem 0.9rem', borderRadius: 'var(--radius-md)',
+        border: '1px solid var(--border)', background: 'var(--bg)',
+        color: 'var(--text)', fontSize: '0.95rem', boxSizing: 'border-box'
     };
 
     return (
@@ -43,12 +90,9 @@ const Contact = () => {
 
                     {submitted ? (
                         <div style={{
-                            background: 'var(--surface)',
-                            border: '1px solid var(--border)',
-                            borderRadius: 'var(--radius-xl)',
-                            padding: '2rem',
-                            textAlign: 'center',
-                            color: 'var(--text)'
+                            background: 'var(--surface)', border: '1px solid var(--border)',
+                            borderRadius: 'var(--radius-xl)', padding: '2rem',
+                            textAlign: 'center', color: 'var(--text)'
                         }}>
                             <div style={{ fontSize: '2.5rem', marginBottom: '1rem' }}>✅</div>
                             <h3 style={{ marginBottom: '0.5rem' }}>Message Sent!</h3>
@@ -56,40 +100,73 @@ const Contact = () => {
                             <Link to="/" style={{ display: 'inline-block', marginTop: '1.5rem' }} className="btn-hero-primary">Back to Home</Link>
                         </div>
                     ) : (
-                        <div style={{
-                            background: 'var(--surface)',
-                            border: '1px solid var(--border)',
-                            borderRadius: 'var(--radius-xl)',
-                            padding: '2rem',
-                            display: 'flex',
-                            flexDirection: 'column',
-                            gap: '1rem'
+                        <form onSubmit={handleSubmit} style={{
+                            background: 'var(--surface)', border: '1px solid var(--border)',
+                            borderRadius: 'var(--radius-xl)', padding: '2rem',
+                            display: 'flex', flexDirection: 'column', gap: '1rem'
                         }}>
-                            {[
-                                { label: 'Your Name', type: 'text', placeholder: 'John Doe' },
-                                { label: 'Email', type: 'email', placeholder: 'john@example.com' },
-                            ].map(({ label, type, placeholder }) => (
-                                <div key={label}>
-                                    <label style={{ display: 'block', marginBottom: '0.4rem', fontSize: '0.9rem', fontWeight: 600, color: 'var(--text)' }}>{label}</label>
-                                    <input type={type} placeholder={placeholder} style={{
-                                        width: '100%', padding: '0.65rem 0.9rem', borderRadius: 'var(--radius-md)',
-                                        border: '1px solid var(--border)', background: 'var(--bg)',
-                                        color: 'var(--text)', fontSize: '0.95rem', boxSizing: 'border-box'
-                                    }} />
-                                </div>
-                            ))}
+
+                            {/* Role — always a free dropdown */}
+                            <div>
+                                <label style={{ display: 'block', marginBottom: '0.4rem', fontSize: '0.9rem', fontWeight: 600, color: 'var(--text)' }}>
+                                    I am a
+                                </label>
+                                <select
+                                    name="role"
+                                    value={form.role}
+                                    onChange={handleChange}
+                                    style={{ ...inputStyle, cursor: 'pointer' }}
+                                >
+                                    <option value="Customer">Customer</option>
+                                    <option value="Service Provider">Service Provider</option>
+                                </select>
+                            </div>
+
+                            {/* Name */}
+                            <div>
+                                <label style={{ display: 'block', marginBottom: '0.4rem', fontSize: '0.9rem', fontWeight: 600, color: 'var(--text)' }}>Your Name</label>
+                                <input
+                                    type="text" name="name" value={form.name}
+                                    onChange={handleChange} placeholder="John Doe"
+                                    style={inputStyle}
+                                />
+                            </div>
+
+                            {/* Email */}
+                            <div>
+                                <label style={{ display: 'block', marginBottom: '0.4rem', fontSize: '0.9rem', fontWeight: 600, color: 'var(--text)' }}>Email</label>
+                                <input
+                                    type="email" name="email" value={form.email}
+                                    onChange={handleChange} placeholder="john@example.com"
+                                    style={inputStyle}
+                                />
+                            </div>
+
+                            {/* Message */}
                             <div>
                                 <label style={{ display: 'block', marginBottom: '0.4rem', fontSize: '0.9rem', fontWeight: 600, color: 'var(--text)' }}>Message</label>
-                                <textarea rows={5} placeholder="How can we help you?" style={{
-                                    width: '100%', padding: '0.65rem 0.9rem', borderRadius: 'var(--radius-md)',
-                                    border: '1px solid var(--border)', background: 'var(--bg)',
-                                    color: 'var(--text)', fontSize: '0.95rem', resize: 'vertical', boxSizing: 'border-box'
-                                }} />
+                                <textarea
+                                    name="message" rows={5} value={form.message}
+                                    onChange={handleChange} placeholder="How can we help you?"
+                                    style={{ ...inputStyle, resize: 'vertical' }}
+                                />
                             </div>
-                            <button onClick={handleSubmit} className="btn-hero-primary" style={{ marginTop: '0.5rem' }}>
-                                Send Message
+
+                            {error && (
+                                <p style={{ color: 'var(--danger-color, #ef4444)', fontSize: '0.875rem', margin: 0 }}>
+                                    ⚠️ {error}
+                                </p>
+                            )}
+
+                            <button
+                                type="submit"
+                                className="btn-hero-primary"
+                                style={{ marginTop: '0.5rem', opacity: loading ? 0.7 : 1, cursor: loading ? 'not-allowed' : 'pointer' }}
+                                disabled={loading}
+                            >
+                                {loading ? 'Sending...' : 'Send Message'}
                             </button>
-                        </div>
+                        </form>
                     )}
                 </div>
             </main>

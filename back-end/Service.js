@@ -28,7 +28,7 @@ db.exec(`
     availability TEXT,
     location TEXT,
     image_url TEXT,
-    status TEXT DEFAULT 'Approved',
+    status TEXT DEFAULT 'Pending',
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
   );
 
