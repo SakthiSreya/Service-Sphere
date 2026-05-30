@@ -652,7 +652,7 @@ app.post("/api/ai/analyze", auth, async (req, res) => {
   try {
     const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
     const basePrompt = `
-      You are the backend AI for ServiceSphere, an on-demand home services platform.
+      You are the backend AI for ServeNest, an on-demand home services platform.
       Analyze the user's issue and respond with a raw JSON object matching this schema perfectly:
       {
         "detected_issue": "Short name/summary of the issue found (e.g. Broken AC Compressor)",

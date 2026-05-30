@@ -47,7 +47,7 @@ const Login = () => {
 
     return (
         <div className="auth-page">
-            <div className="auth-logo">ServiceSphere</div>
+            <div className="auth-logo">ServeNest</div>
             <div style={{ position: 'absolute', top: '1rem', right: '1rem' }}><ThemeToggle /></div>
 
             <div className="auth-card">

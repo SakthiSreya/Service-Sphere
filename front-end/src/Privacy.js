@@ -3,6 +3,7 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import ThemeToggle from './ThemeToggle';
 import './Home.css';
+import Navbar from './Navbar';
 
 const sections = [
     { title: "Information We Collect", body: "We collect information you provide directly, such as your name, email address, and payment details when you register or make a booking." },
@@ -16,23 +17,7 @@ const sections = [
 const Privacy = () => {
     return (
         <div className="landing-container">
-            <header className="main-header">
-                <nav className="main-nav container">
-                    <Link to="/" className="logo">
-                        <svg width="28" height="28" viewBox="0 0 24 24" fill="none">
-                            <path d="M12 2L2 7L12 12L22 7L12 2Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                            <path d="M2 17L12 22L22 17" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                            <path d="M2 12L12 17L22 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                        </svg>
-                        ServiceSphere
-                    </Link>
-                    <div className="nav-auth-links">
-                        <ThemeToggle />
-                        <Link to="/login" className="btn btn-secondary">Login</Link>
-                        <Link to="/signup" className="btn btn-primary">Sign Up</Link>
-                    </div>
-                </nav>
-            </header>
+            <Navbar />
 
             <main style={{ minHeight: '80vh', padding: '5rem 0' }}>
                 <div className="container" style={{ maxWidth: '760px' }}>

@@ -103,7 +103,7 @@ const MyBookings = () => {
             <div className="my-bookings-page">
                 <ToastContainer theme="dark" position="bottom-right" />
                 <header className="bookings-header">
-                    <div className="logo" onClick={() => navigate('/')} style={{ cursor: 'pointer' }}>ServiceSphere</div>
+                    <div className="logo" onClick={() => navigate('/')} style={{ cursor: 'pointer' }}>ServeNest</div>
                     <button className="back-btn" onClick={handleBackClick}>
                         <ArrowLeftIcon />
                         <span>Back to Dashboard</span>

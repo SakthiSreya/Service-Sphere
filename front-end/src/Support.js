@@ -1,14 +1,14 @@
 // src/Support.js
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import ThemeToggle from './ThemeToggle';
 import './Home.css';
+import Navbar from './Navbar';
 
 const faqs = [
     { q: "How do I book a service?", a: "Sign up, search for the service you need, pick a provider, and book a time slot that works for you." },
     { q: "How are providers verified?", a: "All providers go through an identity and background check before being listed on the platform." },
     { q: "Can I cancel a booking?", a: "Yes. You can cancel a booking from your dashboard up to 2 hours before the scheduled time." },
-    { q: "How do payments work?", a: "Payments are securely processed through the platform after the service is completed." },
+    { q: "How do payments work?", a: "We support secure online payments when you place your order, as well as Cash on Delivery (COD) options based on your preference." },
     { q: "How do I become a provider?", a: "Click 'Join as Provider' and complete the registration and verification process." },
 ];
 
@@ -17,23 +17,7 @@ const Support = () => {
 
     return (
         <div className="landing-container">
-            <header className="main-header">
-                <nav className="main-nav container">
-                    <Link to="/" className="logo">
-                        <svg width="28" height="28" viewBox="0 0 24 24" fill="none">
-                            <path d="M12 2L2 7L12 12L22 7L12 2Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                            <path d="M2 17L12 22L22 17" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                            <path d="M2 12L12 17L22 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                        </svg>
-                        ServiceSphere
-                    </Link>
-                    <div className="nav-auth-links">
-                        <ThemeToggle />
-                        <Link to="/login" className="btn btn-secondary">Login</Link>
-                        <Link to="/signup" className="btn btn-primary">Sign Up</Link>
-                    </div>
-                </nav>
-            </header>
+            <Navbar />
 
             <main style={{ minHeight: '80vh', padding: '5rem 0' }}>
                 <div className="container" style={{ maxWidth: '700px' }}>

@@ -130,7 +130,7 @@ const CustomerDashboard = () => {
         <div className="customer-dashboard">
             <ToastContainer theme="dark" position="bottom-right" />
             <header className="customer-header">
-                <div className="logo" onClick={() => navigate('/')} style={{ cursor: 'pointer' }}>ServiceSphere</div>
+                <div className="logo" onClick={() => navigate('/')} style={{ cursor: 'pointer' }}>ServeNest</div>
                 <div className="header-right">
                     <ThemeToggle />
                     <div className="profile-menu">

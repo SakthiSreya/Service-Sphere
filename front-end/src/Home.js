@@ -1,9 +1,9 @@
 import React from 'react';
 import { Link, useNavigate } from "react-router-dom";
 import { ShieldCheck, Calendar, Star, Search, ArrowRight, Users } from "lucide-react";
-import { useTheme } from './ThemeContext';
-import ThemeToggle from './ThemeToggle';
 import "./Home.css";
+import Navbar from './Navbar';
+import LogoIcon from './LogoIcon';
 
 const Home = () => {
     const navigate = useNavigate();
@@ -25,30 +25,14 @@ const Home = () => {
     ];
 
     const testimonials = [
-        { name: "Sarah J.", role: "Homeowner", content: "Found an amazing plumber through ServiceSphere. The booking process was seamless and the service was top-notch!", rating: 5 },
-        { name: "Mike C.", role: "Service Provider", content: "As an electrician, ServiceSphere has helped me grow my business significantly. The platform is easy to use and brings quality customers.", rating: 5 },
-        { name: "Emily D.", role: "Busy Parent", content: "ServiceSphere saved me so much time finding reliable tutoring services for my kids. Highly recommended!", rating: 5 }
+        { name: "Sarah J.", role: "Homeowner", content: "Found an amazing plumber through ServeNest. The booking process was seamless and the service was top-notch!", rating: 5 },
+        { name: "Mike C.", role: "Service Provider", content: "As an electrician, ServeNest has helped me grow my business significantly. The platform is easy to use and brings quality customers.", rating: 5 },
+        { name: "Emily D.", role: "Busy Parent", content: "ServeNest saved me so much time finding reliable tutoring services for my kids. Highly recommended!", rating: 5 }
     ];
 
     return (
         <div className="landing-container">
-            <header className="main-header">
-                <nav className="main-nav container">
-                    <Link to="/" className="logo">
-                        <svg width="28" height="28" viewBox="0 0 24 24" fill="none">
-                            <path d="M12 2L2 7L12 12L22 7L12 2Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                            <path d="M2 17L12 22L22 17" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                            <path d="M2 12L12 17L22 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                        </svg>
-                        ServiceSphere
-                    </Link>
-                    <div className="nav-auth-links">
-                        <ThemeToggle />
-                        <Link to="/login" className="btn btn-secondary">Login</Link>
-                        <Link to="/signup" className="btn btn-primary">Sign Up</Link>
-                    </div>
-                </nav>
-            </header>
+            <Navbar />
 
             <main className="hero-section">
                 <div className="hero-content container">
@@ -76,7 +60,7 @@ const Home = () => {
             <section className="features-section" id="features">
                 <div className="container">
                     <div className="section-header">
-                        <h2 className="section-title">Why Choose <span className="gradient-text">ServiceSphere?</span></h2>
+                        <h2 className="section-title">Why Choose <span className="gradient-text">ServeNest?</span></h2>
                         <p className="section-subtitle">We make finding and booking local services simple, safe, and reliable.</p>
                     </div>
                     <div className="features-grid">
@@ -149,7 +133,7 @@ const Home = () => {
                 <div className="container">
                     <div className="cta-card">
                         <h2 className="cta-title">Ready to Get Started?</h2>
-                        <p className="cta-subtitle">Join thousands of satisfied customers and grow your business with ServiceSphere.</p>
+                        <p className="cta-subtitle">Join thousands of satisfied customers and grow your business with ServeNest.</p>
                         <div className="hero-cta-group">
                             <button onClick={() => navigate('/signup')} className="btn-hero-primary">Find Services Now</button>
                             <button onClick={() => navigate('/signup?role=provider')} className="btn-hero-secondary">Become a Provider</button>
@@ -162,12 +146,8 @@ const Home = () => {
                 <div className="container footer-content">
                     <div className="footer-brand">
                         <div className="logo">
-                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-                                <path d="M12 2L2 7L12 12L22 7L12 2Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                                <path d="M2 17L12 22L22 17" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                                <path d="M2 12L12 17L22 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                            </svg>
-                            ServiceSphere
+                            <LogoIcon size={36} />
+                            ServeNest
                         </div>
                         <p className="footer-tagline">Connecting communities with trusted local services.</p>
                     </div>
@@ -195,7 +175,7 @@ const Home = () => {
                     </div>
                 </div>
                 <div className="footer-bottom">
-                    <p>&copy; {new Date().getFullYear()} ServiceSphere. All rights reserved.</p>
+                    <p>&copy; {new Date().getFullYear()} ServeNest. All rights reserved.</p>
                 </div>
             </footer>
         </div>

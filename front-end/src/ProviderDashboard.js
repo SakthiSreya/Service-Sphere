@@ -310,7 +310,7 @@ const ProviderDashboard = () => {
         <div className="main-content-wrapper">
             <ToastContainer theme="dark" position="bottom-right" />
             <header className="main-header">
-                <h1 className="header-title">ProManage Dashboard</h1>
+                <h1 className="header-title">ServeNest - Provider Dashboard</h1>
                 <div className="header-right">
                     <ThemeToggle />
                     <div className="profile-menu">

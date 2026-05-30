@@ -1,6 +1,11 @@
 import Database from 'better-sqlite3';
+import { fileURLToPath } from 'url';
+import path from 'path';
 
-const db = new Database('serviceSphere.db');
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+const db = new Database(path.join(__dirname, 'ServeNest.db'));
 db.pragma('journal_mode = WAL');
 
 db.exec(`
@@ -64,13 +69,10 @@ db.exec(`
   );
 `);
 
-// Add new columns if they don't exist (safe to run every time)
 const addColumnIfNotExists = (table, column, type) => {
   try {
     db.prepare(`ALTER TABLE ${table} ADD COLUMN ${column} ${type}`).run();
-  } catch (e) {
-    // Column already exists, ignore
-  }
+  } catch (e) { }
 };
 
 addColumnIfNotExists('users', 'phone', 'TEXT');
@@ -78,10 +80,12 @@ addColumnIfNotExists('users', 'area', 'TEXT');
 addColumnIfNotExists('users', 'experience', 'TEXT');
 addColumnIfNotExists('users', 'profile_photo', 'TEXT');
 addColumnIfNotExists('users', 'aadhaar', 'TEXT');
-
-// Payment columns for existing databases
+addColumnIfNotExists('users', 'account_status', "TEXT DEFAULT 'Active'");
 addColumnIfNotExists('bookings', 'payment_method', "TEXT DEFAULT 'COD'");
 addColumnIfNotExists('bookings', 'payment_status', "TEXT DEFAULT 'Pending'");
+addColumnIfNotExists('bookings', 'cancelled_by', "TEXT DEFAULT NULL");
+addColumnIfNotExists('schedules', 'service_id', 'INTEGER');
+addColumnIfNotExists('contact_messages', 'role', "TEXT DEFAULT 'Customer'");
 
 const pool = {
   query: async (sql, params = []) => {

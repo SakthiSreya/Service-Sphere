@@ -58,7 +58,7 @@ const Signup = () => {
 
     return (
         <div className="auth-page">
-            <div className="auth-logo">ServiceSphere</div>
+            <div className="auth-logo">ServeNest</div>
             <div style={{ position: 'absolute', top: '1rem', right: '1rem' }}><ThemeToggle /></div>
 
             <div className="auth-card">
@@ -67,7 +67,7 @@ const Signup = () => {
                 </Link>
                 <h2>Create account</h2>
                 <p className="auth-subtitle">
-                    {step === 1 ? "Join ServiceSphere today" : "Just a few more details"}
+                    {step === 1 ? "Join ServeNest today" : "Just a few more details"}
                 </p>
 
                 {/* Step indicator */}
